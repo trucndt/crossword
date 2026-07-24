@@ -36,6 +36,8 @@ import {
   getPrintGeometry,
   INSERT_PADDING_MM,
   PAGE_DIMENSIONS_MM,
+  pointsToMillimeters,
+  wrapPrintText,
   type PrintPageSize,
   type PrintSettings,
 } from './lib/print'
@@ -160,9 +162,13 @@ function loadDraft(): Draft {
 function ClueColumn({
   layout,
   orientation,
+  columnWidthMm,
+  clueFontSizePt,
 }: {
   layout: CrosswordLayout
   orientation: Orientation
+  columnWidthMm: number
+  clueFontSizePt: number
 }) {
   const entries = layout.placed.filter(
     (entry) => entry.orientation === orientation,
@@ -172,12 +178,26 @@ function ClueColumn({
     <section className="clue-column" aria-label={`${orientation} clues`}>
       <h3>{orientation}</h3>
       <ol>
-        {entries.map((entry) => (
-          <li key={entry.id}>
-            <span>{entry.position}</span>
-            <p>{entry.clue}</p>
-          </li>
-        ))}
+        {entries.map((entry) => {
+          const lines = wrapPrintText(
+            entry.clue,
+            columnWidthMm - 6,
+            clueFontSizePt,
+          )
+
+          return (
+            <li key={entry.id}>
+              <span>{entry.position}</span>
+              <p aria-label={entry.clue}>
+                {lines.map((line, index) => (
+                  <span aria-hidden="true" key={`${index}-${line}`}>
+                    {line}
+                  </span>
+                ))}
+              </p>
+            </li>
+          )
+        })}
       </ol>
     </section>
   )
@@ -411,6 +431,11 @@ function Studio() {
   const printFit = layout ? getPrintFit(layout, draft) : null
   const metrics = geometry?.grid ?? null
   const page = PAGE_DIMENSIONS_MM[draft.pageSize]
+  const insertWidthMm = geometry?.insert.width ?? draft.insertWidthMm
+  const headerTextWidthMm = insertWidthMm - INSERT_PADDING_MM * 2
+  const clueColumnWidthMm = geometry
+    ? (geometry.insert.width - INSERT_PADDING_MM * 2 - 7) / 2
+    : 0
   const maxGridLongEdgeMm = Math.max(
     MIN_LONG_EDGE_MM,
     Math.min(MAX_LONG_EDGE_MM, draft.insertWidthMm - INSERT_PADDING_MM * 2),
@@ -551,6 +576,25 @@ function Studio() {
   const previewGridWidth = metrics
     ? `${Math.min(100, (metrics.widthMm / (geometry?.contentWidth ?? draft.insertWidthMm)) * 100)}%`
     : '100%'
+  const previewTitle = draft.title.trim() || 'Untitled Crossword'
+  const previewTitleLines = wrapPrintText(
+    previewTitle,
+    headerTextWidthMm,
+    18,
+  )
+  const previewNoteLines = wrapPrintText(
+    draft.note,
+    headerTextWidthMm,
+    9,
+  )
+  const titleSizeMm = pointsToMillimeters(18)
+  const noteSizeMm = pointsToMillimeters(9)
+  const clueSizeMm = pointsToMillimeters(draft.clueFontSizePt)
+  const clueHeadingSizeMm = pointsToMillimeters(
+    Math.max(7, draft.clueFontSizePt - 1),
+  )
+  const toInsertCqi = (millimeters: number) =>
+    `${(millimeters / insertWidthMm) * 100}cqi`
   const pageStyle = {
     '--page-ratio': `${page.width} / ${page.height}`,
     '--print-accent': draft.accent,
@@ -560,8 +604,22 @@ function Studio() {
     '--insert-height': `${(draft.insertHeightMm / page.height) * 100}%`,
     '--insert-ratio': `${draft.insertWidthMm} / ${draft.insertHeightMm}`,
     '--insert-padding': `${(INSERT_PADDING_MM / draft.insertWidthMm) * 100}%`,
-    '--clue-font-cqi':
-      (draft.clueFontSizePt * 35.2778) / draft.insertWidthMm,
+    '--title-size': toInsertCqi(titleSizeMm),
+    '--title-line-height': toInsertCqi(titleSizeMm * 1.08),
+    '--note-size': toInsertCqi(noteSizeMm),
+    '--note-line-height': toInsertCqi(noteSizeMm * 1.25),
+    '--header-note-gap': toInsertCqi(1),
+    '--header-grid-gap': toInsertCqi(3),
+    '--grid-clues-gap': toInsertCqi(6),
+    '--clue-column-gap': toInsertCqi(7),
+    '--clue-heading-size': toInsertCqi(clueHeadingSizeMm),
+    '--clue-heading-height': toInsertCqi(
+      clueHeadingSizeMm + clueSizeMm * 1.28 + 2,
+    ),
+    '--clue-font-size': toInsertCqi(clueSizeMm),
+    '--clue-line-height': toInsertCqi(clueSizeMm * 1.28),
+    '--clue-number-width': toInsertCqi(6),
+    '--clue-entry-gap': toInsertCqi(1.5),
   } as CSSProperties
 
   return (
@@ -1097,29 +1155,53 @@ function Studio() {
                   className={`cutout-preview${printFit?.fits ? '' : ' is-overflowing'}`}
                   style={insertStyle}
                 >
-                  {draft.showTitle ||
-                  (draft.showNote && draft.note.trim()) ||
-                  previewMode === 'answer-key' ? (
-                    <header className="paper-header">
-                      {draft.showTitle ? (
-                        <h1>{draft.title.trim() || 'Untitled Crossword'}</h1>
-                      ) : null}
-                      {draft.showNote && draft.note.trim() ? (
-                        <p>{draft.note}</p>
-                      ) : null}
-                      {previewMode === 'answer-key' ? <span>Answer key</span> : null}
-                    </header>
-                  ) : null}
+                  <div className="cutout-content">
+                    {draft.showTitle ||
+                    (draft.showNote && draft.note.trim()) ||
+                    previewMode === 'answer-key' ? (
+                      <header className="paper-header">
+                        {draft.showTitle ? (
+                          <h1 aria-label={previewTitle}>
+                            {previewTitleLines.map((line, index) => (
+                              <span aria-hidden="true" key={`${index}-${line}`}>
+                                {line}
+                              </span>
+                            ))}
+                          </h1>
+                        ) : null}
+                        {draft.showNote && draft.note.trim() ? (
+                          <p aria-label={draft.note}>
+                            {previewNoteLines.map((line, index) => (
+                              <span aria-hidden="true" key={`${index}-${line}`}>
+                                {line}
+                              </span>
+                            ))}
+                          </p>
+                        ) : null}
+                        {previewMode === 'answer-key' ? <span>Answer key</span> : null}
+                      </header>
+                    ) : null}
 
-                  <CrosswordGrid
-                    layout={layout}
-                    showAnswers={previewMode === 'answer-key'}
-                    style={{ width: previewGridWidth }}
-                  />
+                    <CrosswordGrid
+                      layout={layout}
+                      showAnswers={previewMode === 'answer-key'}
+                      style={{ width: previewGridWidth }}
+                    />
 
-                  <div className="paper-clues">
-                    <ClueColumn layout={layout} orientation="across" />
-                    <ClueColumn layout={layout} orientation="down" />
+                    <div className="paper-clues">
+                      <ClueColumn
+                        layout={layout}
+                        orientation="across"
+                        columnWidthMm={clueColumnWidthMm}
+                        clueFontSizePt={draft.clueFontSizePt}
+                      />
+                      <ClueColumn
+                        layout={layout}
+                        orientation="down"
+                        columnWidthMm={clueColumnWidthMm}
+                        clueFontSizePt={draft.clueFontSizePt}
+                      />
+                    </div>
                   </div>
                 </div>
               </article>

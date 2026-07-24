@@ -984,11 +984,16 @@ textarea:focus-visible {
   position: relative;
   width: var(--insert-width);
   height: var(--insert-height);
-  padding: var(--insert-padding);
   container-type: inline-size;
   aspect-ratio: var(--insert-ratio);
   background: #ffffff;
   border: 1px dashed #9aa09d;
+}
+
+.cutout-content {
+  width: 100%;
+  height: 100%;
+  padding: var(--insert-padding);
 }
 
 .cutout-preview.is-overflowing {
@@ -1007,31 +1012,39 @@ textarea:focus-visible {
 }
 
 .paper-header {
-  margin: 0 auto 4.5cqi;
+  margin: 0 auto var(--header-grid-gap);
   text-align: center;
 }
 
 .paper-header h1 {
   max-width: 100%;
   margin: 0;
+  padding-top: var(--title-size);
   overflow-wrap: anywhere;
   color: var(--print-accent);
   font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
-  font-size: 6.2cqi;
+  font-size: var(--title-size);
   font-weight: 700;
-  line-height: 1.1;
+  line-height: var(--title-line-height);
   letter-spacing: 0;
 }
 
 .paper-header p {
-  margin: 1.5cqi 0 0;
+  margin: var(--header-note-gap) 0 0;
   color: #646b69;
   font-family: 'Avenir Next', Avenir, sans-serif;
-  font-size: 2.8cqi;
+  font-size: var(--note-size);
+  line-height: var(--note-line-height);
 }
 
 .paper-header p:first-child {
   margin-top: 0;
+  padding-top: var(--note-size);
+}
+
+.paper-header h1 > span,
+.paper-header p > span {
+  display: block;
 }
 
 .paper-header > span {
@@ -1101,8 +1114,8 @@ textarea:focus-visible {
 
 .paper-clues {
   display: grid;
-  gap: 5cqi;
-  margin-top: 5.2cqi;
+  gap: var(--clue-column-gap);
+  margin-top: var(--grid-clues-gap);
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
@@ -1111,12 +1124,14 @@ textarea:focus-visible {
 }
 
 .clue-column h3 {
-  margin: 0 0 1.8cqi;
-  padding-bottom: 0.8cqi;
+  height: var(--clue-heading-height);
+  margin: 0;
+  padding: 0;
   color: var(--print-accent);
   border-bottom: 2px solid currentColor;
   font-family: 'Avenir Next', Avenir, sans-serif;
-  font-size: 2.7cqi;
+  font-size: var(--clue-heading-size);
+  line-height: var(--clue-heading-size);
   font-weight: 850;
   letter-spacing: 0;
   text-transform: uppercase;
@@ -1125,8 +1140,8 @@ textarea:focus-visible {
 .clue-column ol {
   display: flex;
   flex-direction: column;
-  gap: 1.4cqi;
-  padding: 0;
+  gap: var(--clue-entry-gap);
+  padding: 0 0 var(--clue-entry-gap);
   margin: 0;
   list-style: none;
 }
@@ -1134,11 +1149,11 @@ textarea:focus-visible {
 .clue-column li {
   display: grid;
   min-width: 0;
-  grid-template-columns: 5cqi minmax(0, 1fr);
+  grid-template-columns: var(--clue-number-width) minmax(0, 1fr);
   color: #303634;
   font-family: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
-  font-size: calc(var(--clue-font-cqi) * 1cqi);
-  line-height: 1.25;
+  font-size: var(--clue-font-size);
+  line-height: var(--clue-line-height);
 }
 
 .clue-column li > span {
@@ -1151,6 +1166,10 @@ textarea:focus-visible {
   min-width: 0;
   margin: 0;
   overflow-wrap: anywhere;
+}
+
+.clue-column p > span {
+  display: block;
 }
 
 .empty-preview {
