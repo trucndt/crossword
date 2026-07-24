@@ -9,7 +9,8 @@ npm install
 npm run dev
 ```
 
-Open the URL printed by Vite. Drafts are saved in browser local storage; puzzle content is not sent to a server.
+Open the URL printed by Vite. Drafts are saved in browser local storage. Puzzle
+content is sent to GitHub only when you explicitly publish a short Gist link.
 
 ## Print and cut
 
@@ -52,10 +53,31 @@ https://USERNAME.github.io/REPOSITORY/
 
 1. Open the deployed GitHub Pages site.
 2. Create or reflow the puzzle.
-3. Select **Copy play link** in the top bar.
+3. Select **Copy play link** for a self-contained URL, or **Short link** to
+	publish the puzzle as an unlisted GitHub Gist.
 4. Send the copied link to the solver.
 
-The puzzle data is compressed into the URL after `#play=`. GitHub Pages remains fully static, so there is no database or server to operate. Copy the link from the deployed site, not `localhost`, so recipients receive the public GitHub Pages address.
+### Self-contained links
+
+The puzzle data is compressed into the URL after `#play=`. This requires no
+account or remote storage, but puzzles with many clues can produce long URLs.
+GitHub Pages remains fully static, so there is no database or server to operate.
+
+### Short GitHub links
+
+The **Short link** option creates an unlisted Gist containing a validated
+`cardword-puzzle.json` file, then copies a play URL ending in `#gist=GIST_ID`.
+Solvers do not need a GitHub account. Cardword retrieves the file from GitHub and
+opens it in the same interactive player used by self-contained links.
+
+Publishing requires a classic GitHub personal access token with only the `gist`
+scope. The token is sent directly from the browser to GitHub for that request,
+cleared from the form afterward, and never stored by Cardword. An unlisted Gist
+is not private: anyone with its URL can read the puzzle and its answers. Deleting
+the Gist makes its play link stop working.
+
+For either option, copy the link from the deployed site, not `localhost`, so
+recipients receive the public GitHub Pages address.
 
 The play link can also be placed in an iframe:
 
@@ -70,6 +92,9 @@ The play link can also be placed in an iframe:
 ```
 
 Puzzle answers are present in compressed form in the URL. The links are suitable for gifts and casual sharing, but they are not secure answer storage for a competition.
+
+Gist-backed links also contain the answers in the referenced JSON file and have
+the same limitation.
 
 ## Checks
 

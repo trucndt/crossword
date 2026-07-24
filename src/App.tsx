@@ -2,13 +2,18 @@ import {
   useDeferredValue,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type CSSProperties,
 } from 'react'
 import {
   Check,
+  CloudUpload,
+  Copy,
   Download,
+  ExternalLink,
   FilePlus2,
+  LoaderCircle,
   Palette,
   Printer,
   Ruler,
@@ -16,6 +21,7 @@ import {
   Shuffle,
   TriangleAlert,
   Type,
+  X,
 } from 'lucide-react'
 import { CrosswordGrid } from './components/CrosswordGrid'
 import { CrosswordPlayer } from './components/CrosswordPlayer'
@@ -34,8 +40,12 @@ import {
   type PrintSettings,
 } from './lib/print'
 import {
+  createGistPlayUrl,
   createPlayUrl,
   decodeSharedPuzzle,
+  getGistId,
+  loadPuzzleFromGist,
+  publishPuzzleToGist,
   type SharedPuzzle,
 } from './lib/share'
 import './studio.css'
@@ -107,6 +117,36 @@ const ACCENTS = [
   { name: 'Blue', value: '#246d8a' },
 ]
 
+function getSharedPuzzle(draft: Draft, layoutSeed: number): SharedPuzzle {
+  return {
+    version: 1,
+    title: draft.title,
+    note: draft.note,
+    showTitle: draft.showTitle,
+    showNote: draft.showNote,
+    source: draft.source,
+    accent: draft.accent,
+    layoutSeed,
+  }
+}
+
+async function copyText(value: string) {
+  if (navigator.clipboard?.writeText) {
+    await navigator.clipboard.writeText(value)
+    return
+  }
+
+  const input = document.createElement('textarea')
+  input.value = value
+  input.style.position = 'fixed'
+  input.style.opacity = '0'
+  document.body.append(input)
+  input.select()
+  const copied = document.execCommand('copy')
+  input.remove()
+  if (!copied) throw new Error('Copy failed')
+}
+
 function loadDraft(): Draft {
   try {
     const stored = window.localStorage.getItem(STORAGE_KEY)
@@ -143,6 +183,212 @@ function ClueColumn({
   )
 }
 
+function GitHubShareDialog({
+  puzzle,
+  onClose,
+}: {
+  puzzle: SharedPuzzle
+  onClose: () => void
+}) {
+  const dialogRef = useRef<HTMLDialogElement>(null)
+  const tokenInputRef = useRef<HTMLInputElement>(null)
+  const [token, setToken] = useState('')
+  const [isPublishing, setIsPublishing] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [published, setPublished] = useState<{
+    gistUrl: string
+    playUrl: string
+  } | null>(null)
+  const [isCopied, setIsCopied] = useState(false)
+
+  useEffect(() => {
+    const dialog = dialogRef.current
+    dialog?.showModal()
+    tokenInputRef.current?.focus()
+    return () => {
+      if (dialog?.open) dialog.close()
+    }
+  }, [])
+
+  const handlePublish = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (!token.trim() || isPublishing) return
+
+    setIsPublishing(true)
+    setError(null)
+
+    try {
+      const gist = await publishPuzzleToGist(puzzle, token)
+      const playUrl = createGistPlayUrl(gist.id)
+      setPublished({ gistUrl: gist.url, playUrl })
+      setToken('')
+
+      try {
+        await copyText(playUrl)
+        setIsCopied(true)
+      } catch {
+        setIsCopied(false)
+      }
+    } catch (reason) {
+      setError(
+        reason instanceof Error
+          ? reason.message
+          : 'GitHub could not save the puzzle.',
+      )
+    } finally {
+      setIsPublishing(false)
+    }
+  }
+
+  const handleCopy = async () => {
+    if (!published) return
+    setError(null)
+
+    try {
+      await copyText(published.playUrl)
+      setIsCopied(true)
+    } catch {
+      setIsCopied(false)
+      setError('The link is ready, but this browser could not copy it.')
+    }
+  }
+
+  const closeDialog = () => {
+    if (!isPublishing) onClose()
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="github-share-dialog"
+      aria-labelledby="github-share-title"
+      onCancel={(event) => {
+        event.preventDefault()
+        closeDialog()
+      }}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) closeDialog()
+      }}
+    >
+      <div className="github-share-heading">
+        <span className="github-share-mark" aria-hidden="true">
+          <CloudUpload size={20} />
+        </span>
+        <div>
+          <p>GitHub Gist</p>
+          <h2 id="github-share-title">Publish a short play link</h2>
+        </div>
+        <button
+          type="button"
+          className="dialog-close-button"
+          onClick={closeDialog}
+          disabled={isPublishing}
+          aria-label="Close"
+          title="Close"
+        >
+          <X size={19} aria-hidden="true" />
+        </button>
+      </div>
+
+      {published ? (
+        <div className="github-share-result">
+          <span className="publish-success-mark" aria-hidden="true">
+            <Check size={22} />
+          </span>
+          <div>
+            <h3>{isCopied ? 'Short link copied' : 'Short link ready'}</h3>
+            <p>The crossword is saved as an unlisted Gist.</p>
+          </div>
+          <div className="published-link-row">
+            <input
+              type="text"
+              value={published.playUrl}
+              readOnly
+              aria-label="Short play link"
+              onFocus={(event) => event.currentTarget.select()}
+            />
+            <button
+              type="button"
+              onClick={handleCopy}
+              aria-label="Copy short play link"
+              title="Copy short play link"
+            >
+              {isCopied ? (
+                <Check size={18} aria-hidden="true" />
+              ) : (
+                <Copy size={18} aria-hidden="true" />
+              )}
+            </button>
+          </div>
+          <a
+            className="github-file-link"
+            href={published.gistUrl}
+            target="_blank"
+            rel="noreferrer"
+          >
+            View puzzle file on GitHub
+            <ExternalLink size={15} aria-hidden="true" />
+          </a>
+          {error ? <p className="github-share-error">{error}</p> : null}
+        </div>
+      ) : (
+        <form
+          className="github-share-form"
+          autoComplete="off"
+          onSubmit={handlePublish}
+        >
+          <p className="github-share-description">
+            The token is sent directly to GitHub once and is never saved by
+            Cardword. The Gist is unlisted, not private.
+          </p>
+          <label htmlFor="github-token">GitHub personal access token</label>
+          <input
+            ref={tokenInputRef}
+            id="github-token"
+            type="password"
+            value={token}
+            onChange={(event) => setToken(event.target.value)}
+            autoComplete="off"
+            spellCheck={false}
+            placeholder="Token with gist permission"
+            disabled={isPublishing}
+          />
+          <a
+            className="github-token-link"
+            href="https://github.com/settings/tokens/new?scopes=gist&description=Cardword"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Create a gist-only token
+            <ExternalLink size={14} aria-hidden="true" />
+          </a>
+          {error ? (
+            <p className="github-share-error" role="alert">
+              {error}
+            </p>
+          ) : null}
+          <button
+            className="github-publish-button"
+            type="submit"
+            disabled={!token.trim() || isPublishing}
+          >
+            {isPublishing ? (
+              <LoaderCircle
+                className="is-spinning"
+                size={18}
+                aria-hidden="true"
+              />
+            ) : (
+              <CloudUpload size={18} aria-hidden="true" />
+            )}
+            {isPublishing ? 'Publishing...' : 'Publish and copy short link'}
+          </button>
+        </form>
+      )}
+    </dialog>
+  )
+}
+
 function Studio() {
   const [draft, setDraft] = useState<Draft>(loadDraft)
   const [editorTab, setEditorTab] = useState<EditorTab>('content')
@@ -152,6 +398,7 @@ function Studio() {
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   )
+  const [isGitHubShareOpen, setIsGitHubShareOpen] = useState(false)
   const deferredSource = useDeferredValue(draft.source)
   const isUpdating = deferredSource !== draft.source
 
@@ -291,32 +538,10 @@ function Studio() {
 
   const handleCopyPlayLink = async () => {
     if (!layout || isUpdating) return
-    const puzzle: SharedPuzzle = {
-      version: 1,
-      title: draft.title,
-      note: draft.note,
-      showTitle: draft.showTitle,
-      showNote: draft.showNote,
-      source: draft.source,
-      accent: draft.accent,
-      layoutSeed,
-    }
-    const url = createPlayUrl(puzzle)
+    const url = createPlayUrl(getSharedPuzzle(draft, layoutSeed))
 
     try {
-      if (navigator.clipboard?.writeText) {
-        await navigator.clipboard.writeText(url)
-      } else {
-        const input = document.createElement('textarea')
-        input.value = url
-        input.style.position = 'fixed'
-        input.style.opacity = '0'
-        document.body.append(input)
-        input.select()
-        const copied = document.execCommand('copy')
-        input.remove()
-        if (!copied) throw new Error('Copy failed')
-      }
+      await copyText(url)
       setShareState('copied')
     } catch {
       setShareState('error')
@@ -367,26 +592,38 @@ function Studio() {
           >
             <FilePlus2 size={19} aria-hidden="true" />
           </button>
-          <button
-            className="share-button"
-            type="button"
-            onClick={handleCopyPlayLink}
-            disabled={!layout || layout.placed.length < 2 || isUpdating}
-            title="Copy interactive puzzle link"
-          >
-            {shareState === 'copied' ? (
-              <Check size={17} aria-hidden="true" />
-            ) : (
-              <Share2 size={17} aria-hidden="true" />
-            )}
-            <span className="share-label">
-              {shareState === 'copied'
-                ? 'Link copied'
-                : shareState === 'error'
-                  ? 'Copy failed'
-                  : 'Copy play link'}
-            </span>
-          </button>
+          <div className="share-actions" aria-label="Share puzzle">
+            <button
+              className="share-button"
+              type="button"
+              onClick={handleCopyPlayLink}
+              disabled={!layout || layout.placed.length < 2 || isUpdating}
+              title="Copy self-contained puzzle link"
+            >
+              {shareState === 'copied' ? (
+                <Check size={17} aria-hidden="true" />
+              ) : (
+                <Share2 size={17} aria-hidden="true" />
+              )}
+              <span className="share-label">
+                {shareState === 'copied'
+                  ? 'Link copied'
+                  : shareState === 'error'
+                    ? 'Copy failed'
+                    : 'Copy play link'}
+              </span>
+            </button>
+            <button
+              className="share-button github-share-button"
+              type="button"
+              onClick={() => setIsGitHubShareOpen(true)}
+              disabled={!layout || layout.placed.length < 2 || isUpdating}
+              title="Publish a short link with GitHub Gist"
+            >
+              <CloudUpload size={17} aria-hidden="true" />
+              <span className="share-label">Short link</span>
+            </button>
+          </div>
           <div className="export-actions" aria-label="Export puzzle">
             <button
               className="export-button"
@@ -896,19 +1133,68 @@ function Studio() {
           </div>
         </section>
       </main>
+      {isGitHubShareOpen ? (
+        <GitHubShareDialog
+          puzzle={getSharedPuzzle(draft, layoutSeed)}
+          onClose={() => setIsGitHubShareOpen(false)}
+        />
+      ) : null}
     </div>
   )
 }
 
-function SharedLinkError() {
+function SharedLinkError({ message }: { message?: string }) {
   return (
     <main className="shared-link-error">
       <div>
         <h1>This puzzle link is not valid</h1>
         <p>
-          The link may be incomplete or damaged. Ask its creator for a new play link.
+          {message ??
+            'The link may be incomplete or damaged. Ask its creator for a new play link.'}
         </p>
         <a href={window.location.pathname}>Open the puzzle maker</a>
+      </div>
+    </main>
+  )
+}
+
+function SharedPuzzlePlayer({ puzzle }: { puzzle: SharedPuzzle }) {
+  const parsed = parseEntries(puzzle.source)
+  const layout = generateCrossword(parsed.entries, puzzle.layoutSeed)
+  if (!layout || layout.placed.length < 2) return <SharedLinkError />
+
+  return <CrosswordPlayer puzzle={puzzle} layout={layout} />
+}
+
+function GitHubPuzzleLoader({ gistId }: { gistId: string }) {
+  const [puzzle, setPuzzle] = useState<SharedPuzzle | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const controller = new AbortController()
+
+    loadPuzzleFromGist(gistId, controller.signal)
+      .then(setPuzzle)
+      .catch((reason: unknown) => {
+        if (controller.signal.aborted) return
+        setError(
+          reason instanceof Error
+            ? reason.message
+            : 'GitHub could not load this puzzle.',
+        )
+      })
+
+    return () => controller.abort()
+  }, [gistId])
+
+  if (error) return <SharedLinkError message={error} />
+  if (puzzle) return <SharedPuzzlePlayer puzzle={puzzle} />
+
+  return (
+    <main className="shared-link-error" aria-busy="true">
+      <div>
+        <h1>Loading puzzle</h1>
+        <p>Retrieving the crossword from GitHub...</p>
       </div>
     </main>
   )
@@ -923,16 +1209,20 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  if (hash.startsWith('#gist=')) {
+    const gistId = getGistId(hash)
+    return gistId ? (
+      <GitHubPuzzleLoader key={gistId} gistId={gistId} />
+    ) : (
+      <SharedLinkError />
+    )
+  }
+
   if (!hash.startsWith('#play=')) return <Studio />
 
   const puzzle = decodeSharedPuzzle(hash)
   if (!puzzle) return <SharedLinkError />
-
-  const parsed = parseEntries(puzzle.source)
-  const layout = generateCrossword(parsed.entries, puzzle.layoutSeed)
-  if (!layout || layout.placed.length < 2) return <SharedLinkError />
-
-  return <CrosswordPlayer puzzle={puzzle} layout={layout} />
+  return <SharedPuzzlePlayer puzzle={puzzle} />
 }
 
 export default App
