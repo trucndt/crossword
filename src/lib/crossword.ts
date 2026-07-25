@@ -97,40 +97,35 @@ export function parseEntries(source: string): ParsedEntries {
   return { entries, errors }
 }
 
-function shuffleEntries(entries: CrosswordEntry[], seed: number) {
-  const shuffled = [...entries]
-  let state = seed || 1
-
-  for (let index = shuffled.length - 1; index > 0; index -= 1) {
-    state = (state * 1664525 + 1013904223) >>> 0
-    const target = state % (index + 1)
-    ;[shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]]
-  }
-
-  return shuffled
-}
-
-function runGenerator(entries: CrosswordEntry[]) {
+function runGenerator(
+  entries: CrosswordEntry[],
+  priorityEntry?: CrosswordEntry,
+) {
   const originalLog = console.log
+  const priorityLength =
+    Math.max(...entries.map(({ answer }) => answer.length)) + 1
   console.log = () => undefined
 
   try {
     return crosswordLayoutGenerator.generateLayout(
-      entries.map(({ id, answer, clue }) => ({ id, answer, clue })),
+      entries.map(({ id, answer, clue }) => ({
+        id,
+        answer:
+          id === priorityEntry?.id
+            ? answer.padEnd(priorityLength, '0')
+            : answer,
+        clue,
+      })),
     )
   } finally {
     console.log = originalLog
   }
 }
 
-function scoreLayout(layout: ReturnType<typeof runGenerator>) {
-  const placedCount = layout.result.filter(
+function countPlacedEntries(layout: ReturnType<typeof runGenerator>) {
+  return layout.result.filter(
     ({ orientation }) => orientation !== 'none',
   ).length
-  const area = layout.rows * layout.cols
-  const shapePenalty = Math.abs(layout.rows - layout.cols)
-
-  return placedCount * 100_000 - area * 10 - shapePenalty
 }
 
 export function generateCrossword(
@@ -139,17 +134,21 @@ export function generateCrossword(
 ): CrosswordLayout | null {
   if (entries.length < 2) return null
 
-  const attempts = [
-    [...entries].sort((first, second) => second.answer.length - first.answer.length),
-    entries,
-    ...Array.from({ length: 6 }, (_, index) =>
-      shuffleEntries(entries, seed * 17 + index * 101),
-    ),
-  ]
-
-  const generated = attempts
-    .map(runGenerator)
-    .sort((first, second) => scoreLayout(second) - scoreLayout(first))[0]
+  const attempts = entries
+    .slice(0, 8)
+    .map((priorityEntry) => runGenerator(entries, priorityEntry))
+  const fallback = runGenerator(entries)
+  const bestPlacedCount = Math.max(
+    countPlacedEntries(fallback),
+    ...attempts.map(countPlacedEntries),
+  )
+  const bestAttempts = attempts.filter(
+    (attempt) => countPlacedEntries(attempt) === bestPlacedCount,
+  )
+  const generated =
+    bestAttempts.length > 0
+      ? bestAttempts[(seed - 1) % bestAttempts.length]
+      : fallback
 
   if (!generated || generated.rows === 0 || generated.cols === 0) return null
 
@@ -165,7 +164,55 @@ export function generateCrossword(
       typeof entry.starty === 'number',
   )
 
-  const numberedStarts = [...placedResults]
+  const rawPlaced: Omit<PlacedEntry, 'position'>[] = placedResults.flatMap(
+    (result) => {
+      const source = entryById.get(result.id)
+      if (!source) return []
+
+      return [
+        {
+          ...source,
+          startx: result.startx,
+          starty: result.starty,
+          orientation: result.orientation,
+        },
+      ]
+    },
+  )
+
+  if (rawPlaced.length === 0) return null
+
+  let top = Number.POSITIVE_INFINITY
+  let left = Number.POSITIVE_INFINITY
+  let right = Number.NEGATIVE_INFINITY
+  let bottom = Number.NEGATIVE_INFINITY
+
+  for (const entry of rawPlaced) {
+    const startColumn = entry.startx - 1
+    const startRow = entry.starty - 1
+    const endColumn =
+      startColumn + (entry.orientation === 'across' ? entry.answer.length - 1 : 0)
+    const endRow =
+      startRow + (entry.orientation === 'down' ? entry.answer.length - 1 : 0)
+
+    top = Math.min(top, startRow)
+    left = Math.min(left, startColumn)
+    right = Math.max(right, endColumn)
+    bottom = Math.max(bottom, endRow)
+  }
+
+  const rows = bottom - top + 1
+  const cols = right - left + 1
+  const table = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => '-'),
+  )
+  const rebasedPlaced = rawPlaced.map((entry) => ({
+    ...entry,
+    startx: entry.startx - left,
+    starty: entry.starty - top,
+  }))
+
+  const numberedStarts = [...rebasedPlaced]
     .sort((first, second) => first.starty - second.starty || first.startx - second.startx)
     .reduce<Map<string, number>>((numbers, entry) => {
       const key = `${entry.starty}:${entry.startx}`
@@ -173,28 +220,28 @@ export function generateCrossword(
       return numbers
     }, new Map())
 
-  const placed = placedResults
-    .map((result) => {
-      const source = entryById.get(result.id)
-      if (!source) return null
-
-      return {
-        ...source,
-        startx: result.startx,
-        starty: result.starty,
-        orientation: result.orientation,
-        position: numberedStarts.get(`${result.starty}:${result.startx}`) ?? 0,
-      }
-    })
-    .filter((entry): entry is PlacedEntry => entry !== null)
+  const placed = rebasedPlaced
+    .map((entry) => ({
+      ...entry,
+      position: numberedStarts.get(`${entry.starty}:${entry.startx}`) ?? 0,
+    }))
     .sort((first, second) => first.position - second.position)
+
+  for (const entry of placed) {
+    for (const [index, letter] of [...entry.answer].entries()) {
+      const row = entry.starty - 1 + (entry.orientation === 'down' ? index : 0)
+      const column =
+        entry.startx - 1 + (entry.orientation === 'across' ? index : 0)
+      table[row][column] = letter
+    }
+  }
 
   const placedIds = new Set(placed.map(({ id }) => id))
 
   return {
-    rows: generated.rows,
-    cols: generated.cols,
-    table: generated.table.map((row) => row.map((cell) => cell.toUpperCase())),
+    rows,
+    cols,
+    table,
     placed,
     unplaced: entries.filter(({ id }) => !placedIds.has(id)),
   }
