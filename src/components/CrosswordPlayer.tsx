@@ -268,17 +268,6 @@ export function CrosswordPlayer({ puzzle, layout }: CrosswordPlayerProps) {
 
   return (
     <div className="player-shell" style={playerStyle}>
-      <header className="player-header">
-        <a className="player-brand" href={window.location.pathname}>
-          <span className="brand-mark" aria-hidden="true">
-            {Array.from({ length: 9 }, (_, index) => (
-              <span key={index} />
-            ))}
-          </span>
-          <span>Cardword</span>
-        </a>
-      </header>
-
       <main className="player-main">
         <header className="player-title">
           <p className="eyebrow">Interactive crossword</p>
@@ -420,6 +409,9 @@ export function CrosswordPlayer({ puzzle, layout }: CrosswordPlayerProps) {
           </aside>
         </div>
       </main>
+      <footer className="player-footer">
+        Designed by <strong>Truc Nguyen</strong>
+      </footer>
     </div>
   )
 }
