@@ -12,6 +12,7 @@ export interface PrintSettings {
   insertWidthMm: number
   insertHeightMm: number
   clueFontSizePt: number
+  gridNumberFontSizePt: number
   accent: string
   includeAnswerKey: boolean
   trimMarks: boolean

@@ -1132,7 +1132,7 @@ textarea:focus-visible {
   top: 5%;
   left: 7%;
   font-family: 'Avenir Next', Avenir, sans-serif;
-  font-size: clamp(5px, 23cqi, 10px);
+  font-size: var(--grid-number-size);
   font-weight: 650;
   line-height: 1;
 }

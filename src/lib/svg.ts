@@ -109,6 +109,7 @@ function renderGrid(
   const { insert, grid } = getPrintGeometry(layout, settings)
   const startNumbers = getStartNumbers(layout)
   const startX = insert.x + (insert.width - grid.widthMm) / 2
+  const numberSizeMm = pointsToMillimeters(settings.gridNumberFontSizePt)
   const markup: string[] = []
 
   layout.table.forEach((row, rowIndex) => {
@@ -124,7 +125,7 @@ function renderGrid(
       const number = startNumbers.get(`${rowIndex}:${columnIndex}`)
       if (number) {
         markup.push(
-          `<text x="${x + grid.cellSizeMm * 0.08}" y="${y + grid.cellSizeMm * 0.22}" fill="#1d2221" font-family="Arial, sans-serif" font-size="${Math.max(1.5, grid.cellSizeMm * 0.2)}">${number}</text>`,
+          `<text x="${x + grid.cellSizeMm * 0.07}" y="${y + grid.cellSizeMm * 0.05 + numberSizeMm * 0.8}" fill="#1d2221" font-family="Arial, sans-serif" font-size="${numberSizeMm}">${number}</text>`,
         )
       }
     })

@@ -129,7 +129,7 @@ function drawGrid(
   const { grid: metrics, insert } = getPrintGeometry(layout, settings)
   const startNumbers = getStartNumbers(layout)
   const startX = insert.x + (insert.width - metrics.widthMm) / 2
-  const numberSize = Math.max(1.5, Math.min(2.5, metrics.cellSizeMm * 0.2))
+  const numberSizeMm = pointsToMillimeters(settings.gridNumberFontSizePt)
   const letterSize = Math.max(4, Math.min(11, metrics.cellSizeMm * 1.35))
 
   document.setDrawColor(29, 34, 33)
@@ -155,12 +155,12 @@ function drawGrid(
       const number = startNumbers.get(`${rowIndex}:${columnIndex}`)
       if (number) {
         document.setFont('helvetica', 'normal')
-        document.setFontSize(numberSize * 2.835)
+        document.setFontSize(settings.gridNumberFontSizePt)
         document.setTextColor(29, 34, 33)
         document.text(
           String(number),
           cellX + Math.max(0.45, metrics.cellSizeMm * 0.07),
-          cellY + Math.max(1.5, metrics.cellSizeMm * 0.2),
+          cellY + metrics.cellSizeMm * 0.05 + numberSizeMm * 0.8,
         )
       }
 

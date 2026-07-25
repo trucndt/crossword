@@ -68,6 +68,8 @@ interface Draft extends Omit<PrintSettings, 'title' | 'note'> {
 const STORAGE_KEY = 'cardword-draft-v3'
 const MIN_LONG_EDGE_MM = 50
 const MAX_LONG_EDGE_MM = 150
+const MIN_GRID_NUMBER_SIZE_PT = 4
+const MAX_GRID_NUMBER_SIZE_PT = 10
 
 const CARD_INSERTS = [
   {
@@ -110,6 +112,7 @@ SMILE | What this puzzle hopes to bring`,
   insertWidthMm: 114.3,
   insertHeightMm: 165.1,
   clueFontSizePt: 9,
+  gridNumberFontSizePt: 5,
   accent: '#d6533f',
   includeAnswerKey: true,
   trimMarks: true,
@@ -663,6 +666,7 @@ function Studio({
   const titleSizeMm = pointsToMillimeters(18)
   const noteSizeMm = pointsToMillimeters(9)
   const clueSizeMm = pointsToMillimeters(draft.clueFontSizePt)
+  const gridNumberSizeMm = pointsToMillimeters(draft.gridNumberFontSizePt)
   const clueHeadingSizeMm = pointsToMillimeters(
     Math.max(7, draft.clueFontSizePt - 1),
   )
@@ -693,6 +697,9 @@ function Studio({
     '--clue-line-height': toInsertCqi(clueSizeMm * 1.28),
     '--clue-number-width': toInsertCqi(6),
     '--clue-entry-gap': toInsertCqi(1.5),
+    '--grid-number-size': metrics
+      ? `${(gridNumberSizeMm / metrics.cellSizeMm) * 100}cqi`
+      : '23cqi',
   } as CSSProperties
 
   return (
@@ -1130,6 +1137,50 @@ function Studio({
                           clueFontSizePt: Math.min(
                             14,
                             Math.max(7, Number(event.target.value)),
+                          ),
+                        })
+                      }
+                    />
+                    <span>pt</span>
+                  </label>
+                </div>
+              </fieldset>
+
+              <fieldset className="setting-group">
+                <legend>
+                  <Type size={16} aria-hidden="true" /> Grid number size
+                </legend>
+                <div className="size-control">
+                  <input
+                    type="range"
+                    min={MIN_GRID_NUMBER_SIZE_PT}
+                    max={MAX_GRID_NUMBER_SIZE_PT}
+                    step="1"
+                    value={draft.gridNumberFontSizePt}
+                    onChange={(event) =>
+                      updateDraft({
+                        gridNumberFontSizePt: Number(event.target.value),
+                      })
+                    }
+                    aria-label="Grid number font size"
+                    aria-valuetext={`${draft.gridNumberFontSizePt} points`}
+                  />
+                  <label className="measurement-input">
+                    <span className="sr-only">Grid number font size</span>
+                    <input
+                      type="number"
+                      min={MIN_GRID_NUMBER_SIZE_PT}
+                      max={MAX_GRID_NUMBER_SIZE_PT}
+                      step="1"
+                      value={draft.gridNumberFontSizePt}
+                      onChange={(event) =>
+                        updateDraft({
+                          gridNumberFontSizePt: Math.min(
+                            MAX_GRID_NUMBER_SIZE_PT,
+                            Math.max(
+                              MIN_GRID_NUMBER_SIZE_PT,
+                              Number(event.target.value),
+                            ),
                           ),
                         })
                       }
