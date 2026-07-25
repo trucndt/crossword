@@ -656,9 +656,45 @@ textarea:focus-visible {
 
 .source-summary {
   min-height: 28px;
+  flex-wrap: wrap;
+  gap: 8px;
   margin-top: -10px;
   color: var(--muted);
   font-size: 12px;
+}
+
+.reflow-controls,
+.seed-control {
+  display: flex;
+  align-items: center;
+}
+
+.reflow-controls {
+  gap: 5px;
+  margin-left: auto;
+}
+
+.seed-control {
+  gap: 5px;
+  color: #68716e;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.seed-control input {
+  width: 66px;
+  height: 28px;
+  padding: 0 5px 0 7px;
+  color: var(--ink);
+  background: #fbfcfc;
+  border: 1px solid #cbd5d2;
+  border-radius: 5px;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+.seed-control input:hover {
+  border-color: #9eaaa6;
 }
 
 .quiet-button {

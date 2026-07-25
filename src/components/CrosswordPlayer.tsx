@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
-import { Check, CheckCircle2, Eraser, Pencil } from 'lucide-react'
+import { Check, CheckCircle2, Eraser } from 'lucide-react'
 import {
   getStartNumbers,
   type CrosswordLayout,
@@ -19,7 +19,6 @@ import '../player.css'
 interface CrosswordPlayerProps {
   puzzle: SharedPuzzle
   layout: CrosswordLayout
-  editUrl?: string
 }
 
 interface CellPosition {
@@ -76,11 +75,7 @@ function ClueList({
   )
 }
 
-export function CrosswordPlayer({
-  puzzle,
-  layout,
-  editUrl,
-}: CrosswordPlayerProps) {
+export function CrosswordPlayer({ puzzle, layout }: CrosswordPlayerProps) {
   const entriesById = useMemo(
     () => new Map(layout.placed.map((entry) => [entry.id, entry])),
     [layout],
@@ -282,11 +277,6 @@ export function CrosswordPlayer({
           </span>
           <span>Cardword</span>
         </a>
-        {editUrl ? (
-          <a className="player-edit-link" href={editUrl}>
-            <Pencil size={16} aria-hidden="true" /> Edit puzzle
-          </a>
-        ) : null}
       </header>
 
       <main className="player-main">

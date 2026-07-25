@@ -905,14 +905,33 @@ function Studio({
                     ? 'Updating layout...'
                     : `${layout?.placed.length ?? 0} of ${parsed.entries.length} placed`}
                 </span>
-                <button
-                  className="quiet-button"
-                  type="button"
-                  onClick={() => setLayoutSeed((current) => current + 1)}
-                  disabled={parsed.entries.length < 2 || isUpdating}
-                >
-                  <Shuffle size={15} aria-hidden="true" /> Reflow
-                </button>
+                <div className="reflow-controls">
+                  <label className="seed-control">
+                    <span>Seed</span>
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={layoutSeed}
+                      onChange={(event) => {
+                        const nextSeed = event.currentTarget.valueAsNumber
+                        setLayoutSeed(
+                          Number.isSafeInteger(nextSeed) && nextSeed > 0
+                            ? nextSeed
+                            : 1,
+                        )
+                      }}
+                    />
+                  </label>
+                  <button
+                    className="quiet-button"
+                    type="button"
+                    onClick={() => setLayoutSeed((current) => current + 1)}
+                    disabled={parsed.entries.length < 2 || isUpdating}
+                  >
+                    <Shuffle size={15} aria-hidden="true" /> Reflow
+                  </button>
+                </div>
               </div>
 
               {parsed.errors.length > 0 ? (
@@ -1322,24 +1341,12 @@ function SharedLinkError({ message }: { message?: string }) {
   )
 }
 
-function SharedPuzzlePlayer({
-  puzzle,
-  gistId,
-}: {
-  puzzle: SharedPuzzle
-  gistId?: string
-}) {
+function SharedPuzzlePlayer({ puzzle }: { puzzle: SharedPuzzle }) {
   const parsed = parseEntries(puzzle.source)
   const layout = generateCrossword(parsed.entries, puzzle.layoutSeed)
   if (!layout || layout.placed.length < 2) return <SharedLinkError />
 
-  return (
-    <CrosswordPlayer
-      puzzle={puzzle}
-      layout={layout}
-      editUrl={gistId ? createGistEditUrl(gistId) : undefined}
-    />
-  )
+  return <CrosswordPlayer puzzle={puzzle} layout={layout} />
 }
 
 function GitHubPuzzleLoader({
@@ -1374,7 +1381,7 @@ function GitHubPuzzleLoader({
     return mode === 'edit' ? (
       <Studio initialPuzzle={puzzle} initialGistId={gistId} />
     ) : (
-      <SharedPuzzlePlayer puzzle={puzzle} gistId={gistId} />
+      <SharedPuzzlePlayer puzzle={puzzle} />
     )
   }
 

@@ -79,15 +79,15 @@ answers. Deleting the Gist makes its play link stop working.
 ### Edit a Gist-backed puzzle
 
 1. Open its `#gist=GIST_ID` play link.
-2. Select **Edit puzzle** in the top bar.
+2. Change the URL fragment from `#gist=GIST_ID` to `#edit=GIST_ID`.
 3. Change the puzzle in the studio, then select **Update Gist**.
 4. Enter a gist-scoped token belonging to the GitHub account that owns the Gist.
 5. Select **Update Gist and copy link**.
 
 Cardword updates `cardword-puzzle.json` in the same Gist, so the original play
 link continues to work and immediately serves the revised puzzle. The edit URL
-contains only the Gist ID, never the token. Anyone with the play link can open
-the editor, but only the Gist owner can save changes to that Gist.
+contains only the Gist ID, never the token, and the public player does not show
+an edit control. Only the Gist owner can save changes to that Gist.
 
 For either option, copy the link from the deployed site, not `localhost`, so
 recipients receive the public GitHub Pages address.

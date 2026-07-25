@@ -22,7 +22,6 @@
 }
 
 .player-brand,
-.player-edit-link,
 .player-status,
 .player-actions,
 .completion-banner,
@@ -45,22 +44,6 @@
   width: 31px;
   height: 31px;
   flex-basis: 31px;
-}
-
-.player-edit-link {
-  min-height: 36px;
-  gap: 7px;
-  padding: 0 12px;
-  color: #ffffff;
-  background: #34413d;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.player-edit-link:hover {
-  background: #465650;
 }
 
 .player-main {
@@ -364,7 +347,6 @@
   box-shadow: inset 3px 0 0 var(--player-accent);
 }
 
-.player-edit-link:focus-visible,
 .player-actions button:focus-visible,
 .player-clue-section button:focus-visible,
 .play-cell input:focus-visible {
@@ -439,11 +421,6 @@
     width: 28px;
     height: 28px;
     flex-basis: 28px;
-  }
-
-  .player-edit-link {
-    min-height: 34px;
-    padding: 0 10px;
   }
 
   .player-main {
