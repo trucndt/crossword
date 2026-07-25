@@ -70,11 +70,24 @@ The **Short link** option creates an unlisted Gist containing a validated
 Solvers do not need a GitHub account. Cardword retrieves the file from GitHub and
 opens it in the same interactive player used by self-contained links.
 
-Publishing requires a classic GitHub personal access token with only the `gist`
-scope. The token is sent directly from the browser to GitHub for that request,
-cleared from the form afterward, and never stored by Cardword. An unlisted Gist
-is not private: anyone with its URL can read the puzzle and its answers. Deleting
-the Gist makes its play link stop working.
+Publishing and updating require a classic GitHub personal access token with only
+the `gist` scope. The token is sent directly from the browser to GitHub for that
+request, cleared from the form afterward, and never stored by Cardword. An
+unlisted Gist is not private: anyone with its URL can read the puzzle and its
+answers. Deleting the Gist makes its play link stop working.
+
+### Edit a Gist-backed puzzle
+
+1. Open its `#gist=GIST_ID` play link.
+2. Select **Edit puzzle** in the top bar.
+3. Change the puzzle in the studio, then select **Update Gist**.
+4. Enter a gist-scoped token belonging to the GitHub account that owns the Gist.
+5. Select **Update Gist and copy link**.
+
+Cardword updates `cardword-puzzle.json` in the same Gist, so the original play
+link continues to work and immediately serves the revised puzzle. The edit URL
+contains only the Gist ID, never the token. Anyone with the play link can open
+the editor, but only the Gist owner can save changes to that Gist.
 
 For either option, copy the link from the deployed site, not `localhost`, so
 recipients receive the public GitHub Pages address.

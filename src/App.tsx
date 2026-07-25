@@ -42,13 +42,16 @@ import {
   type PrintSettings,
 } from './lib/print'
 import {
+  createGistEditUrl,
   createGistPlayUrl,
   createPlayUrl,
   decodeSharedPuzzle,
+  getEditableGistId,
   getGistId,
   loadPuzzleFromGist,
   publishPuzzleToGist,
   type SharedPuzzle,
+  updatePuzzleGist,
 } from './lib/share'
 import './studio.css'
 
@@ -159,6 +162,18 @@ function loadDraft(): Draft {
   }
 }
 
+function getDraftFromSharedPuzzle(puzzle: SharedPuzzle): Draft {
+  return {
+    ...loadDraft(),
+    title: puzzle.title,
+    note: puzzle.note,
+    showTitle: puzzle.showTitle ?? true,
+    showNote: puzzle.showNote ?? true,
+    source: puzzle.source,
+    accent: puzzle.accent,
+  }
+}
+
 function ClueColumn({
   layout,
   orientation,
@@ -205,10 +220,14 @@ function ClueColumn({
 
 function GitHubShareDialog({
   puzzle,
+  gistId,
   onClose,
+  onSaved,
 }: {
   puzzle: SharedPuzzle
+  gistId: string | null
   onClose: () => void
+  onSaved: (gistId: string) => void
 }) {
   const dialogRef = useRef<HTMLDialogElement>(null)
   const tokenInputRef = useRef<HTMLInputElement>(null)
@@ -216,8 +235,10 @@ function GitHubShareDialog({
   const [isPublishing, setIsPublishing] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [published, setPublished] = useState<{
+    id: string
     gistUrl: string
     playUrl: string
+    wasUpdate: boolean
   } | null>(null)
   const [isCopied, setIsCopied] = useState(false)
 
@@ -238,9 +259,17 @@ function GitHubShareDialog({
     setError(null)
 
     try {
-      const gist = await publishPuzzleToGist(puzzle, token)
+      const wasUpdate = Boolean(gistId)
+      const gist = gistId
+        ? await updatePuzzleGist(puzzle, gistId, token)
+        : await publishPuzzleToGist(puzzle, token)
       const playUrl = createGistPlayUrl(gist.id)
-      setPublished({ gistUrl: gist.url, playUrl })
+      setPublished({
+        id: gist.id,
+        gistUrl: gist.url,
+        playUrl,
+        wasUpdate,
+      })
       setToken('')
 
       try {
@@ -253,7 +282,7 @@ function GitHubShareDialog({
       setError(
         reason instanceof Error
           ? reason.message
-          : 'GitHub could not save the puzzle.',
+          : `GitHub could not ${gistId ? 'update' : 'save'} the puzzle.`,
       )
     } finally {
       setIsPublishing(false)
@@ -274,7 +303,9 @@ function GitHubShareDialog({
   }
 
   const closeDialog = () => {
-    if (!isPublishing) onClose()
+    if (isPublishing) return
+    if (published) onSaved(published.id)
+    onClose()
   }
 
   return (
@@ -296,7 +327,9 @@ function GitHubShareDialog({
         </span>
         <div>
           <p>GitHub Gist</p>
-          <h2 id="github-share-title">Publish a short play link</h2>
+          <h2 id="github-share-title">
+            {gistId ? 'Update this play link' : 'Publish a short play link'}
+          </h2>
         </div>
         <button
           type="button"
@@ -316,8 +349,20 @@ function GitHubShareDialog({
             <Check size={22} />
           </span>
           <div>
-            <h3>{isCopied ? 'Short link copied' : 'Short link ready'}</h3>
-            <p>The crossword is saved as an unlisted Gist.</p>
+            <h3>
+              {published.wasUpdate
+                ? isCopied
+                  ? 'Puzzle updated and link copied'
+                  : 'Puzzle updated'
+                : isCopied
+                  ? 'Short link copied'
+                  : 'Short link ready'}
+            </h3>
+            <p>
+              {published.wasUpdate
+                ? 'The existing play link now serves this version.'
+                : 'The crossword is saved as an unlisted Gist.'}
+            </p>
           </div>
           <div className="published-link-row">
             <input
@@ -358,8 +403,9 @@ function GitHubShareDialog({
           onSubmit={handlePublish}
         >
           <p className="github-share-description">
-            The token is sent directly to GitHub once and is never saved by
-            Cardword. The Gist is unlisted, not private.
+            {gistId
+              ? 'Use a gist-scoped token from the GitHub account that owns this Gist. The existing play link will not change.'
+              : 'The token is sent directly to GitHub once and is never saved by Cardword. The Gist is unlisted, not private.'}
           </p>
           <label htmlFor="github-token">GitHub personal access token</label>
           <input
@@ -401,7 +447,13 @@ function GitHubShareDialog({
             ) : (
               <CloudUpload size={18} aria-hidden="true" />
             )}
-            {isPublishing ? 'Publishing...' : 'Publish and copy short link'}
+            {isPublishing
+              ? gistId
+                ? 'Updating...'
+                : 'Publishing...'
+              : gistId
+                ? 'Update Gist and copy link'
+                : 'Publish and copy short link'}
           </button>
         </form>
       )}
@@ -409,16 +461,27 @@ function GitHubShareDialog({
   )
 }
 
-function Studio() {
-  const [draft, setDraft] = useState<Draft>(loadDraft)
+function Studio({
+  initialPuzzle,
+  initialGistId,
+}: {
+  initialPuzzle?: SharedPuzzle
+  initialGistId?: string
+}) {
+  const [draft, setDraft] = useState<Draft>(() =>
+    initialPuzzle ? getDraftFromSharedPuzzle(initialPuzzle) : loadDraft(),
+  )
   const [editorTab, setEditorTab] = useState<EditorTab>('content')
   const [previewMode, setPreviewMode] = useState<PreviewMode>('puzzle')
   const [unit, setUnit] = useState<MeasurementUnit>('in')
-  const [layoutSeed, setLayoutSeed] = useState(1)
+  const [layoutSeed, setLayoutSeed] = useState(
+    initialPuzzle?.layoutSeed ?? 1,
+  )
   const [shareState, setShareState] = useState<'idle' | 'copied' | 'error'>(
     'idle',
   )
   const [isGitHubShareOpen, setIsGitHubShareOpen] = useState(false)
+  const [activeGistId, setActiveGistId] = useState(initialGistId ?? null)
   const deferredSource = useDeferredValue(draft.source)
   const isUpdating = deferredSource !== draft.source
 
@@ -543,8 +606,11 @@ function Studio() {
       'Start a new puzzle? Your current draft will be replaced.',
     )
     if (!shouldReset) return
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_DRAFT))
+    window.history.replaceState(null, '', window.location.pathname)
     setDraft(DEFAULT_DRAFT)
     setLayoutSeed(1)
+    setActiveGistId(null)
     setEditorTab('content')
     setPreviewMode('puzzle')
   }
@@ -563,7 +629,9 @@ function Studio() {
 
   const handleCopyPlayLink = async () => {
     if (!layout || isUpdating) return
-    const url = createPlayUrl(getSharedPuzzle(draft, layoutSeed))
+    const url = activeGistId
+      ? createGistPlayUrl(activeGistId)
+      : createPlayUrl(getSharedPuzzle(draft, layoutSeed))
 
     try {
       await copyText(url)
@@ -571,6 +639,11 @@ function Studio() {
     } catch {
       setShareState('error')
     }
+  }
+
+  const handleGistSaved = (gistId: string) => {
+    setActiveGistId(gistId)
+    window.history.replaceState(null, '', createGistEditUrl(gistId))
   }
 
   const previewGridWidth = metrics
@@ -639,7 +712,8 @@ function Studio() {
 
         <div className="header-actions">
           <span className="save-state">
-            <Check size={14} aria-hidden="true" /> Saved locally
+            <Check size={14} aria-hidden="true" />
+            {activeGistId ? 'Editing Gist' : 'Saved locally'}
           </span>
           <button
             className="icon-button"
@@ -676,10 +750,16 @@ function Studio() {
               type="button"
               onClick={() => setIsGitHubShareOpen(true)}
               disabled={!layout || layout.placed.length < 2 || isUpdating}
-              title="Publish a short link with GitHub Gist"
+              title={
+                activeGistId
+                  ? 'Update the existing GitHub Gist'
+                  : 'Publish a short link with GitHub Gist'
+              }
             >
               <CloudUpload size={17} aria-hidden="true" />
-              <span className="share-label">Short link</span>
+              <span className="share-label">
+                {activeGistId ? 'Update Gist' : 'Short link'}
+              </span>
             </button>
           </div>
           <div className="export-actions" aria-label="Export puzzle">
@@ -1218,7 +1298,9 @@ function Studio() {
       {isGitHubShareOpen ? (
         <GitHubShareDialog
           puzzle={getSharedPuzzle(draft, layoutSeed)}
+          gistId={activeGistId}
           onClose={() => setIsGitHubShareOpen(false)}
+          onSaved={handleGistSaved}
         />
       ) : null}
     </div>
@@ -1240,15 +1322,33 @@ function SharedLinkError({ message }: { message?: string }) {
   )
 }
 
-function SharedPuzzlePlayer({ puzzle }: { puzzle: SharedPuzzle }) {
+function SharedPuzzlePlayer({
+  puzzle,
+  gistId,
+}: {
+  puzzle: SharedPuzzle
+  gistId?: string
+}) {
   const parsed = parseEntries(puzzle.source)
   const layout = generateCrossword(parsed.entries, puzzle.layoutSeed)
   if (!layout || layout.placed.length < 2) return <SharedLinkError />
 
-  return <CrosswordPlayer puzzle={puzzle} layout={layout} />
+  return (
+    <CrosswordPlayer
+      puzzle={puzzle}
+      layout={layout}
+      editUrl={gistId ? createGistEditUrl(gistId) : undefined}
+    />
+  )
 }
 
-function GitHubPuzzleLoader({ gistId }: { gistId: string }) {
+function GitHubPuzzleLoader({
+  gistId,
+  mode,
+}: {
+  gistId: string
+  mode: 'play' | 'edit'
+}) {
   const [puzzle, setPuzzle] = useState<SharedPuzzle | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -1270,7 +1370,13 @@ function GitHubPuzzleLoader({ gistId }: { gistId: string }) {
   }, [gistId])
 
   if (error) return <SharedLinkError message={error} />
-  if (puzzle) return <SharedPuzzlePlayer puzzle={puzzle} />
+  if (puzzle) {
+    return mode === 'edit' ? (
+      <Studio initialPuzzle={puzzle} initialGistId={gistId} />
+    ) : (
+      <SharedPuzzlePlayer puzzle={puzzle} gistId={gistId} />
+    )
+  }
 
   return (
     <main className="shared-link-error" aria-busy="true">
@@ -1291,10 +1397,19 @@ function App() {
     return () => window.removeEventListener('hashchange', handleHashChange)
   }, [])
 
+  if (hash.startsWith('#edit=')) {
+    const gistId = getEditableGistId(hash)
+    return gistId ? (
+      <GitHubPuzzleLoader key={`edit-${gistId}`} gistId={gistId} mode="edit" />
+    ) : (
+      <SharedLinkError />
+    )
+  }
+
   if (hash.startsWith('#gist=')) {
     const gistId = getGistId(hash)
     return gistId ? (
-      <GitHubPuzzleLoader key={gistId} gistId={gistId} />
+      <GitHubPuzzleLoader key={`play-${gistId}`} gistId={gistId} mode="play" />
     ) : (
       <SharedLinkError />
     )

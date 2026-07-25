@@ -16,6 +16,7 @@ export interface SharedPuzzle {
 
 const PLAY_HASH_PREFIX = '#play='
 const GIST_HASH_PREFIX = '#gist='
+const EDIT_GIST_HASH_PREFIX = '#edit='
 const GIST_FILENAME = 'cardword-puzzle.json'
 const GITHUB_API_VERSION = '2022-11-28'
 const MAX_SOURCE_LENGTH = 12_000
@@ -104,6 +105,12 @@ export function getGistId(hash: string) {
   return isGistId(gistId) ? gistId : null
 }
 
+export function getEditableGistId(hash: string) {
+  if (!hash.startsWith(EDIT_GIST_HASH_PREFIX)) return null
+  const gistId = hash.slice(EDIT_GIST_HASH_PREFIX.length)
+  return isGistId(gistId) ? gistId : null
+}
+
 export async function loadPuzzleFromGist(
   gistId: string,
   signal?: AbortSignal,
@@ -111,6 +118,7 @@ export async function loadPuzzleFromGist(
   if (!isGistId(gistId)) throw new Error('Invalid GitHub Gist ID')
 
   const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+    cache: 'no-store',
     headers: {
       Accept: 'application/vnd.github+json',
       'X-GitHub-Api-Version': GITHUB_API_VERSION,
@@ -191,6 +199,53 @@ export async function publishPuzzleToGist(
   return { id: gist.id, url: gist.html_url }
 }
 
+export async function updatePuzzleGist(
+  puzzle: SharedPuzzle,
+  gistId: string,
+  token: string,
+): Promise<PublishedGist> {
+  if (!isGistId(gistId)) throw new Error('Invalid GitHub Gist ID')
+
+  const response = await fetch(`https://api.github.com/gists/${gistId}`, {
+    method: 'PATCH',
+    headers: {
+      Accept: 'application/vnd.github+json',
+      Authorization: `Bearer ${token.trim()}`,
+      'Content-Type': 'application/json',
+      'X-GitHub-Api-Version': GITHUB_API_VERSION,
+    },
+    body: JSON.stringify({
+      description: `Cardword crossword: ${puzzle.title.trim() || 'Untitled Crossword'}`,
+      files: {
+        [GIST_FILENAME]: { content: serializeSharedPuzzle(puzzle) },
+      },
+    }),
+  })
+  const data: unknown = await response.json().catch(() => null)
+
+  if (!response.ok) {
+    const message =
+      response.status === 404
+        ? 'This token does not have permission to update that Gist'
+        : getGitHubErrorMessage(data)
+    throw new Error(message ?? 'GitHub could not update the puzzle')
+  }
+
+  if (!data || typeof data !== 'object') {
+    throw new Error('GitHub returned an invalid response')
+  }
+
+  const gist = data as GitHubGistResponse
+  if (
+    gist.id !== gistId ||
+    typeof gist.html_url !== 'string'
+  ) {
+    throw new Error('GitHub did not return the updated Gist')
+  }
+
+  return { id: gistId, url: gist.html_url }
+}
+
 export function createPlayUrl(puzzle: SharedPuzzle) {
   const url = new URL(window.location.href)
   url.search = ''
@@ -203,5 +258,13 @@ export function createGistPlayUrl(gistId: string) {
   const url = new URL(window.location.href)
   url.search = ''
   url.hash = `gist=${gistId}`
+  return url.toString()
+}
+
+export function createGistEditUrl(gistId: string) {
+  if (!isGistId(gistId)) throw new Error('Invalid GitHub Gist ID')
+  const url = new URL(window.location.href)
+  url.search = ''
+  url.hash = `edit=${gistId}`
   return url.toString()
 }
