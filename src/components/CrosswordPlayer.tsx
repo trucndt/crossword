@@ -6,7 +6,7 @@ import {
   type ChangeEvent,
   type KeyboardEvent,
 } from 'react'
-import { Check, CheckCircle2, Eraser, PencilLine } from 'lucide-react'
+import { Check, CheckCircle2, Eraser } from 'lucide-react'
 import {
   getStartNumbers,
   type CrosswordLayout,
@@ -276,9 +276,6 @@ export function CrosswordPlayer({ puzzle, layout }: CrosswordPlayerProps) {
             ))}
           </span>
           <span>Cardword</span>
-        </a>
-        <a className="make-puzzle-link" href={window.location.pathname}>
-          <PencilLine size={16} aria-hidden="true" /> Make your own
         </a>
       </header>
 

@@ -22,7 +22,6 @@
 }
 
 .player-brand,
-.make-puzzle-link,
 .player-status,
 .player-actions,
 .completion-banner,
@@ -45,22 +44,6 @@
   width: 31px;
   height: 31px;
   flex-basis: 31px;
-}
-
-.make-puzzle-link {
-  min-height: 36px;
-  gap: 7px;
-  padding: 0 12px;
-  color: #ecf1ef;
-  background: #34403c;
-  border-radius: 5px;
-  font-size: 12px;
-  font-weight: 800;
-  text-decoration: none;
-}
-
-.make-puzzle-link:hover {
-  background: #43514c;
 }
 
 .player-main {
@@ -365,7 +348,6 @@
 }
 
 .player-actions button:focus-visible,
-.make-puzzle-link:focus-visible,
 .player-clue-section button:focus-visible,
 .play-cell input:focus-visible {
   outline: 3px solid rgba(23, 108, 136, 0.3);
@@ -439,12 +421,6 @@
     width: 28px;
     height: 28px;
     flex-basis: 28px;
-  }
-
-  .make-puzzle-link {
-    min-height: 34px;
-    padding: 0 9px;
-    font-size: 11px;
   }
 
   .player-main {
