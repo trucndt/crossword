@@ -705,18 +705,6 @@ function Studio({
   return (
     <div className="app-shell">
       <header className="app-header">
-        <div className="brand-lockup" aria-label="Cardword">
-          <span className="brand-mark" aria-hidden="true">
-            {Array.from({ length: 9 }, (_, index) => (
-              <span key={index} />
-            ))}
-          </span>
-          <span className="brand-copy">
-            <strong>Cardword</strong>
-            <small>Print studio</small>
-          </span>
-        </div>
-
         <div className="header-actions">
           <span className="save-state">
             <Check size={14} aria-hidden="true" />
@@ -1365,6 +1353,9 @@ function Studio({
           </div>
         </section>
       </main>
+      <footer className="site-footer">
+        Designed by <strong>Truc Nguyen</strong>
+      </footer>
       {isGitHubShareOpen ? (
         <GitHubShareDialog
           puzzle={getSharedPuzzle(draft, layoutSeed)}
